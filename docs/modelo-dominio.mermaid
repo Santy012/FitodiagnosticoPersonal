@@ -1,0 +1,142 @@
+classDiagram
+    direction TB
+
+    %% ============================================================
+    %% Modelo de dominio — paquete `dominio`
+    %% Proyecto Corte 1 · Arquitectura de Software
+    %%
+    %% Cubre SOLO la capa de dominio. El diagrama de paquetes /
+    %% componentes (entregable 6.b.1) es un documento aparte, y ese
+    %% sí debe corresponder uno a uno con el repositorio.
+    %% ============================================================
+
+    class Medicion {
+        <<record>>
+        +parametros() List~Parametro~
+        +buscar(nombre: String) Optional~Parametro~
+    }
+
+    class Parametro {
+        <<record>>
+        -nombre: String
+        -valor: double
+        -unidad: String
+        +nombre() String
+        +valor() double
+        +unidad() String
+    }
+
+    class Especie {
+        <<record>>
+        -nombre: String
+        +nombre() String
+        +rangoDe(parametro: String) Optional~Rango~
+        +parametrosCubiertos() Set~String~
+    }
+
+    class Rango {
+        <<record>>
+        -minimo: double
+        -maximo: double
+        +clasificar(valor: double) EstadoParametro
+        +minimo() double
+        +maximo() double
+    }
+
+    class EstadoParametro {
+        <<enumeration>>
+        BAJO
+        OPTIMO
+        ALTO
+    }
+
+    class ParametroEvaluado {
+        <<record>>
+        +parametro() Parametro
+        +rangoOptimo() Rango
+        +estado() EstadoParametro
+    }
+
+    class EvaluadorDeDiagnostico {
+        +evaluar(especie: Especie, medicion: Medicion) Diagnostico
+    }
+
+    class ReglaDeAgregacion {
+        <<interface>>
+        +agregar(evaluados: List~ParametroEvaluado~) EstadoGlobal
+    }
+
+    class ReglaPorSeveridad {
+        +agregar(evaluados: List~ParametroEvaluado~) EstadoGlobal
+    }
+
+    class EstadoGlobal {
+        <<enumeration>>
+        SALUDABLE
+        EN_RIESGO
+        CRITICO
+    }
+
+    class Recomendador {
+        <<interface>>
+        +para(evaluado: ParametroEvaluado) Optional~String~
+    }
+
+    class Diagnostico {
+        <<record>>
+        +especie() Especie
+        +parametros() List~ParametroEvaluado~
+        +estadoGlobal() EstadoGlobal
+        +recomendaciones() List~String~
+    }
+
+    class CatalogoDeEspecies {
+        <<interface>>
+        +buscarPorNombre(nombre: String) Optional~Especie~
+        +listarTodas() List~Especie~
+    }
+
+    class ParametroInvalidoException {
+        <<exception>>
+    }
+
+    class EspecieNoSoportadaException {
+        <<exception>>
+    }
+
+    %% ---------- composicion / agregacion ----------
+    Medicion "1" *-- "1..*" Parametro : contiene
+    Especie "1" o-- "1..*" Rango : un rango por nombre de parametro
+    Diagnostico "1" *-- "1..*" ParametroEvaluado : contiene
+    EvaluadorDeDiagnostico o-- "1" ReglaDeAgregacion : usa
+    EvaluadorDeDiagnostico o-- "1" Recomendador : usa
+
+    %% ---------- realizacion ----------
+    ReglaPorSeveridad ..|> ReglaDeAgregacion
+
+    %% ---------- asociacion ----------
+    ParametroEvaluado --> "1" Parametro
+    ParametroEvaluado --> "1" Rango : rango optimo
+    ParametroEvaluado --> "1" EstadoParametro
+    Diagnostico --> "1" Especie
+    Diagnostico --> "1" EstadoGlobal
+
+    %% ---------- dependencia ----------
+    EvaluadorDeDiagnostico ..> Diagnostico : crea
+    CatalogoDeEspecies ..> Especie : devuelve
+    Parametro ..> ParametroInvalidoException : lanza si rompe su invariante
+
+    %% ---------- notas ----------
+    note for CatalogoDeEspecies "Puerto (RA5 + DIP): se declara en dominio.
+    Lo implementa infraestructura (CSV hoy, BD manana) y lo llama
+    el caso de uso en aplicacion, nunca el evaluador."
+
+    note for Especie "Los rangos van indexados por NOMBRE de parametro,
+    no como campos fijos. Agregar pH = una columna mas en el CSV
+    y cero cambios en el evaluador (pista de OCP, seccion 5)."
+
+    note for ReglaDeAgregacion "RF3: la regla de agregacion la define y justifica
+    el equipo. ReglaPorSeveridad es solo un ejemplo."
+
+    note for EspecieNoSoportadaException "La lanza el caso de uso cuando el puerto
+    devuelve Optional vacio. La clase vive en dominio."

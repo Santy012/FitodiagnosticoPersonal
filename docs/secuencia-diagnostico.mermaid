@@ -1,0 +1,70 @@
+sequenceDiagram
+    autonumber
+
+    %% ============================================================
+    %% Entregable 6.b.2 — Diagrama de secuencia
+    %% Recorrido completo de una peticion de diagnostico,
+    %% desde el fetch del front hasta la respuesta.
+    %%
+    %% Los nombres son los de las clases reales del repositorio.
+    %% Si una clase cambia de nombre en el codigo, se cambia aqui:
+    %% el enunciado exige que el diagrama y el repo coincidan.
+    %% ============================================================
+
+    box rgb(238,238,242) front · servido desde otro origen · RA2
+        participant UI as navegador · app.js
+    end
+    box rgb(224,239,250) web
+        participant CTRL as DiagnosticoController
+        participant ERR as ManejadorGlobalDeErrores
+    end
+    box rgb(229,245,233) aplicacion
+        participant CU as ServicioDeDiagnostico
+    end
+    box rgb(252,241,224) dominio
+        participant EVAL as EvaluadorDeDiagnostico
+        participant REGLA as ReglaDeAgregacion
+    end
+    box rgb(248,228,235) infraestructura
+        participant CAT as CatalogoEspeciesCsv : CatalogoDeEspecies
+    end
+
+    UI->>CTRL: fetch POST /api/v1/diagnosticos<br/>{especie, humedad, luz, temperatura}
+
+    alt parametro ausente, no numerico o fisicamente imposible (RF6)
+        CTRL->>ERR: ParametroInvalidoException
+        ERR-->>UI: 400 {error: PARAMETRO_INVALIDO, mensaje, detalle}
+    else entrada valida
+        Note over CTRL: RA6 · borde del sistema: el DTO se valida y se<br/>convierte en Medicion (objeto de dominio).<br/>De aqui hacia adentro no viaja nada de HTTP.
+
+        CTRL->>CU: diagnosticar(nombreEspecie, medicion)
+        CU->>CAT: buscarPorNombre(nombreEspecie)
+        CAT-->>CU: Optional[Especie]
+
+        Note over CU,CAT: RA5 + DIP · aplicacion solo conoce el tipo<br/>CatalogoDeEspecies. Pasar de CSV a base de datos<br/>es una clase nueva y cero cambios en esta linea.
+
+        alt especie no registrada (RF6)
+            CU->>ERR: EspecieNoSoportadaException
+            ERR-->>UI: 404 {error: ESPECIE_NO_SOPORTADA, mensaje, detalle}
+        else especie encontrada
+            CU->>EVAL: evaluar(especie, medicion)
+
+            loop por cada Parametro de la Medicion (RF2)
+                EVAL->>EVAL: especie.rangoDe(nombre)
+                EVAL->>EVAL: rango.clasificar(valor) → BAJO | OPTIMO | ALTO
+                EVAL->>EVAL: construye ParametroEvaluado
+            end
+
+            Note over EVAL: RF2 se resuelve sin saber cuantos parametros hay.<br/>Agregar pH no modifica este recorrido (OCP).
+
+            EVAL->>REGLA: agregar(parametrosEvaluados)
+            REGLA-->>EVAL: EstadoGlobal (RF3)
+
+            EVAL->>EVAL: recomendacion textual por cada parametro fuera de rango (RF4)
+            EVAL-->>CU: Diagnostico
+
+            CU-->>CTRL: Diagnostico
+            CTRL->>CTRL: RespuestaDiagnostico.desde(diagnostico)
+            CTRL-->>UI: 200 OK<br/>{especie, estado, parametros[], recomendaciones[]}
+        end
+    end
