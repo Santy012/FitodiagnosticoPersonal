@@ -15,9 +15,9 @@ arquitectura, y el código se escribe contra ese diseño.
 | Entregable | Estado |
 |---|---|
 | 6.a Repositorio con historial incremental | en curso |
-| 6.b.1 Diagrama de paquetes / componentes | pendiente |
+| 6.b.1 Diagrama de paquetes / componentes | en curso |
 | 6.b.2 Diagrama de secuencia | primera versión |
-| 6.b.3 Tabla de responsabilidades por capa | pendiente |
+| 6.b.3 Tabla de responsabilidades por capa | en curso |
 | 6.b.4 Justificación SOLID (archivo y línea) | pendiente (requiere código) |
 | 6.b.5 Plan de evolución | pendiente |
 | 6.b.6 Decisiones y alternativas descartadas | en curso |
